@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>みんなのきろく モック</title>
+<style>
+  /*
+    配色・寸法は、デジタル庁デザインシステムの基準(本文16px以上・行間1.5倍以上・太さ400/700・
+    テキスト4.5:1・枠線3:1)と、iOS系アプリの「グレーの背景に白いカード」の型に合わせている。
+  */
+  :root {
+    --bg: #f3f6f5;
+    --surface: #ffffff;
+    --text: #1c1c1e;
+    --muted: #5c5c63;
+    --line: #e0e0e5;          /* 飾りの区切り線(これだけでは何かを伝えない線) */
+    --line-strong: #8e8e93;   /* 入力欄などの枠。背景との比 3:1 以上 */
+    --accent: #0f766e;
+    --accent-text: #ffffff;
+    --danger: #b3261e;
+    /* 書いた人ごとの色(塗りと文字)。誰が書いたかを示すためだけに使う */
+    --m1-bg: #0e7490; --m1-fg: #ffffff;
+    --m2-bg: #b45309; --m2-fg: #ffffff;
+    --m3-bg: #6d28d9; --m3-fg: #ffffff;
+    --m4-bg: #475569; --m4-fg: #ffffff;
+    --m5-bg: #1d4ed8; --m5-fg: #ffffff;
+    --m6-bg: #4d7c0f; --m6-fg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f0f10; --surface: #1c1c1e; --text: #f2f2f7; --muted: #a8a8b0;
+      --line: #38383a; --line-strong: #8e8e93; --accent: #5fd0c3; --accent-text: #04201c;
+      --danger: #ff8a80;
+      --m1-bg: #67d4e8; --m1-fg: #04202a;
+      --m2-bg: #f5b361; --m2-fg: #2a1700;
+      --m3-bg: #b9a2f5; --m3-fg: #1c0b44;
+      --m4-bg: #b6c2d1; --m4-fg: #111a26;
+      --m5-bg: #8fb4ff; --m5-fg: #06173d;
+      --m6-bg: #a8d36a; --m6-fg: #172400;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f0f10; --surface: #1c1c1e; --text: #f2f2f7; --muted: #a8a8b0;
+    --line: #38383a; --line-strong: #8e8e93; --accent: #5fd0c3; --accent-text: #04201c;
+    --danger: #ff8a80;
+    --m1-bg: #67d4e8; --m1-fg: #04202a;
+    --m2-bg: #f5b361; --m2-fg: #2a1700;
+    --m3-bg: #b9a2f5; --m3-fg: #1c0b44;
+    --m4-bg: #b6c2d1; --m4-fg: #111a26;
+    --m5-bg: #8fb4ff; --m5-fg: #06173d;
+    --m6-bg: #a8d36a; --m6-fg: #172400;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    font-size: 1.0625rem;   /* 17px。端末の文字サイズ設定に追従する */
+    line-height: 1.7;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  b, h1, h2, h3 { font-weight: 700; }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* 押せる部分は 44px 以上にする */
+  .btn, .link, .rowbtn, .presets button, .entrybtn, .navrow {
+    min-height: 44px; display: inline-flex; align-items: center; cursor: pointer;
+  }
+  .btn {
+    justify-content: center; min-height: 52px; padding: 0 20px; border-radius: 10px; font-weight: 700;
+    border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text);
+  }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn.small { min-height: 44px; padding: 0 14px; border-radius: 8px; font-size: .9375rem; white-space: nowrap; }
+  .btn.block { width: 100%; }
+  .btn.secondary { background: var(--surface); color: var(--accent); }
+  .btn.danger { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+  .btn.danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .link { background: none; border: 0; padding: 0 8px; color: var(--accent); }
+  .link.danger { color: var(--danger); }
+  .link.strong { font-weight: 700; padding: 0 12px; }
+  /* 削除は、主な操作から離した別枠に置く */
+  .card + .card.apart { margin-top: 48px; }
+  .navrow.dangerrow { justify-content: center; min-height: 52px; color: var(--danger); font-weight: 700; }
+  .stack { display: grid; gap: 12px; }
+
+  /* モックの操作(実際のアプリにはない部分) */
+  .mockbar { background: var(--bg); padding: 10px 12px 4px; border-bottom: 1px solid var(--line); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .chips button {
+    min-height: 40px; padding: 0 12px; cursor: pointer; font-size: .875rem; border-radius: 8px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
+  }
+  .chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
+  .mockbar details { max-width: 420px; margin: 8px auto 6px; font-size: .875rem; }
+  .mockbar summary { cursor: pointer; color: var(--muted); min-height: 32px; }
+  .mockbar label { display: grid; grid-template-columns: 9em 1fr; align-items: center; gap: 8px; margin: 6px 0; }
+  .mockbar select { min-height: 40px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); padding: 0 8px; }
+
+  .phone { max-width: 420px; margin: 0 auto; background: var(--bg); min-height: 80vh; }
+  .screen { display: flex; flex-direction: column; min-height: 80vh; }
+  header.bar {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 4px;
+    min-height: 56px; padding: 6px 8px; background: var(--surface); border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 1;
+  }
+  header.bar .title { font-weight: 700; text-align: center; white-space: nowrap; display: flex; flex-direction: column; line-height: 1.3; }
+  header.bar .title small { font-weight: 400; color: var(--muted); font-size: .875rem; }
+  header.bar > :first-child { justify-self: start; }
+  header.bar > :last-child { justify-self: end; }
+  .body { padding: 16px; flex: 1; }
+  .footbar {
+    position: sticky; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--surface); border-top: 1px solid var(--line);
+  }
+  .footbar .btn { white-space: nowrap; }
+  .body.has-fab { padding-bottom: 104px; }
+
+  /* 下のタブバー(グループの中の3つの画面)。アイコンと文字ラベルを必ず並べる */
+  .tabbar {
+    position: sticky; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr);
+    background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbar button {
+    min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: none; border: 0; cursor: pointer; color: var(--muted); font-size: .875rem;
+  }
+  .tabbar button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+  .tabbar svg { display: block; }
+  /* 記録タブの右下に浮かぶ「記録する」ボタン */
+  .fabwrap { position: fixed; z-index: 2; right: max(16px, calc((100vw - 420px) / 2 + 16px)); bottom: calc(77px + env(safe-area-inset-bottom)); }
+  .fab {
+    min-height: 56px; padding: 0 22px; border-radius: 16px; border: 0; cursor: pointer;
+    background: var(--accent); color: var(--accent-text); font-weight: 700; display: inline-flex; align-items: center; gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.28);
+  }
+  .lead { color: var(--muted); font-size: .9375rem; line-height: 1.6; margin: 0 0 12px; }
+  .section-label { margin: 22px 4px 6px; color: var(--muted); font-size: .9375rem; font-weight: 700; }
+
+  /* カード */
+  .card { background: var(--surface); border-radius: 12px; overflow: hidden; }
+  .card + .card { margin-top: 12px; }
+  .card .pad { padding: 16px; }
+  .navrow {
+    width: 100%; min-height: 64px; justify-content: space-between; gap: 12px; padding: 10px 16px;
+    background: none; border: 0; text-align: left;
+  }
+  .navrow + .navrow { border-top: 1px solid var(--line); }
+  .navrow .sub { display: block; color: var(--muted); font-size: .9375rem; }
+  .chev { flex: none; color: var(--muted); }
+  .empty { text-align: center; padding: 28px 16px; }
+  .empty p { margin: 0 0 16px; color: var(--muted); }
+
+  /* 入力 */
+  .field { display: block; margin-bottom: 8px; color: var(--muted); font-size: .9375rem; line-height: 1.6; }
+  textarea.text, input.textfield {
+    width: 100%; padding: 14px; background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 10px;
+  }
+  textarea.text { min-height: 260px; resize: vertical; }
+  input.textfield { min-height: 52px; padding: 0 14px; }
+  textarea.text::placeholder, input.textfield::placeholder { color: var(--muted); }
+
+  /* 日付ごとのまとまり: 日付は背景の上に小さく置き、記録は白いカードにまとめる */
+  .day { margin-top: 20px; }
+  .day:first-child { margin-top: 4px; }
+  .day h3 { margin: 0 4px 6px; color: var(--muted); font-size: .9375rem; }
+  .entries { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 12px; overflow: hidden; }
+  .entries li + li { border-top: 1px solid var(--line); }
+  .entry, .entrybtn { display: flex; gap: 12px; padding: 14px; width: 100%; text-align: left; background: none; border: 0; align-items: flex-start; }
+  .m1 { --mb: var(--m1-bg); --mf: var(--m1-fg); }
+  .m2 { --mb: var(--m2-bg); --mf: var(--m2-fg); }
+  .m3 { --mb: var(--m3-bg); --mf: var(--m3-fg); }
+  .m4 { --mb: var(--m4-bg); --mf: var(--m4-fg); }
+  .m5 { --mb: var(--m5-bg); --mf: var(--m5-fg); }
+  .m6 { --mb: var(--m6-bg); --mf: var(--m6-fg); }
+  .avatar {
+    flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--mb); color: var(--mf); font-weight: 700; font-size: 1rem; line-height: 1;
+  }
+  .avatar.lg { width: 44px; height: 44px; }
+  .ebody { flex: 1; min-width: 0; }
+  .ehead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+  .ehead .name { font-weight: 700; }
+  .ehead time { color: var(--muted); font-size: .9375rem; }
+  .entry p, .entrybtn p { margin: 2px 0 0; }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .edited { color: var(--muted); font-size: .875rem; }
+
+  /* 記録の詳細 */
+  .detail-date { font-weight: 700; margin: 0; }
+  .detail-who { display: flex; align-items: center; gap: 10px; margin: 12px 0 16px; }
+  .detail-body { margin: 0; line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* メンバー */
+  .member { display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-height: 64px; }
+  .member + .member { border-top: 1px solid var(--line); }
+  .member .grow { flex: 1; }
+  .member .role { color: var(--muted); font-size: .9375rem; }
+  .member.former { opacity: .75; }
+  .infolist { margin: 12px 0 0; padding-left: 1.2em; color: var(--muted); font-size: .9375rem; }
+  .linkbox {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .9375rem; word-break: break-all;
+    background: var(--bg); border: 1px solid var(--line-strong); border-radius: 10px; padding: 12px;
+  }
+  .errorcard { border: 1px solid var(--line-strong); }
+
+  /* 相談用ビュー */
+  .rowbtn {
+    width: 100%; min-height: 56px; gap: 12px; padding: 6px 14px; text-align: left;
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px;
+  }
+  .rowbtn .rl { font-weight: 700; }
+  .rowbtn .rv { flex: 1; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.4; }
+  .rowbtn .rv small { color: var(--muted); font-size: .875rem; }
+  .listbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 10px 0 2px; color: var(--muted); font-size: .9375rem; }
+  /* 並び順の切り替え(2択のセグメント) */
+  .seg { display: inline-grid; grid-auto-flow: column; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .seg button { min-height: 44px; padding: 0 14px; background: none; border: 0; cursor: pointer; font-size: .9375rem; color: var(--text); }
+  .seg button + button { border-left: 1px solid var(--line-strong); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+  .kv { padding: 12px 16px; min-height: 64px; }
+  .kv small { display: block; color: var(--muted); font-size: .875rem; line-height: 1.4; }
+
+  /* シート・ダイアログ */
+  .backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 10;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .backdrop.center { align-items: center; padding: 16px; }
+  .sheet {
+    width: 100%; max-width: 420px; max-height: 90vh; overflow: auto;
+    background: var(--bg); color: var(--text);
+    border-radius: 14px 14px 0 0; padding: 4px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+  .dialog { width: 100%; max-width: 360px; background: var(--surface); border-radius: 14px; padding: 20px 16px 16px; }
+  .dialog h2 { margin: 0 0 8px; font-size: 1.0625rem; }
+  .dialog p { margin: 0 0 14px; color: var(--muted); font-size: .9375rem; line-height: 1.65; }
+  .dialog .actions { display: grid; gap: 10px; margin-top: 14px; }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; min-height: 56px; }
+  .presets { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 12px; overflow: hidden; }
+  .presets li + li { border-top: 1px solid var(--line); }
+  .presets button, .choice {
+    width: 100%; min-height: 52px; display: flex; justify-content: space-between; align-items: center;
+    background: none; border: 0; padding: 0 14px; text-align: left; cursor: pointer;
+  }
+  .presets .check { color: var(--accent); font-weight: 700; visibility: hidden; }
+  .presets button[aria-current="true"] .check { visibility: visible; }
+  .choices { list-style: none; margin: 0 0 4px; padding: 0; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; }
+  .choices li + li { border-top: 1px solid var(--line); }
+  .choice { gap: 10px; justify-content: flex-start; }
+  .choice input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .custom { margin-top: 16px; }
+  .custom .row { display: grid; gap: 10px; margin: 8px 0 14px; }
+  .custom label { display: grid; grid-template-columns: 4.5em 1fr; align-items: center; gap: 8px; }
+  .custom input[type="date"] {
+    min-width: 0; min-height: 48px; background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 10px; padding: 0 10px;
+  }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20;
+    background: #2c2c2e; color: #fff; padding: 12px 18px; border-radius: 10px; font-size: .9375rem; max-width: 90vw;
+  }
+
+  /* ヘッダーのグループ切り替え(「母のこと ⌄」)。タブの最初の画面には戻るボタンを置かない */
+  .groupbtn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; max-width: 11em; padding: 0 8px; background: none; border: 0; cursor: pointer; font-weight: 700; color: var(--text); }
+  .groupbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .groupbtn svg { flex: none; color: var(--muted); }
+  /* 一覧の操作のカード(期間・並び順・印刷) */
+  .navrow .rv { flex: 1; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.4; }
+  .navrow .rv small { color: var(--muted); font-size: .875rem; }
+  .navrow.static { cursor: default; }
+  /* 動作を起こす行: 矢印は付けず、アクセント色の文字とアイコンで見せる */
+  .navrow.action { justify-content: flex-start; color: var(--accent); }
+  .navrow .down, .navrow > svg:last-child { color: var(--muted); }
+  .summary { margin: 10px 4px 0; color: var(--muted); font-size: .9375rem; }
+  .tools { margin: 24px auto 32px; max-width: 420px; padding: 0 16px; font-size: .875rem; color: var(--muted); }
+  .print-title { display: none; }
+
+  /* 印刷(A4)。ブラウザの印刷プレビューで確認する */
+  @page {
+    size: A4; margin: 18mm 16mm;
+    @bottom-center { content: counter(page) " / " counter(pages); font-size: 9pt; color: #555; }
+  }
+  @media print {
+    .mockbar, .tools, header.bar, .noprint, .footbar, .tabbar, .fabwrap, .toast, .backdrop { display: none !important; }
+    body { background: #fff; color: #000; font-size: 11pt; line-height: 1.7; }
+    .phone { max-width: none; margin: 0; background: #fff; min-height: 0; }
+    .screen { min-height: 0; }
+    .body { padding: 0; }
+    .print-title { display: block; margin-bottom: 10mm; padding-bottom: 4mm; border-bottom: 1.5pt solid #000; }
+    .print-title h1 { font-size: 16pt; margin: 0 0 2mm; }
+    .print-title p { margin: 0; color: #222; font-size: 10.5pt; }
+    .day { margin-top: 6mm; }
+    .day h3 { margin: 0; padding: 1mm 0; color: #000; font-size: 11pt; border-bottom: 1pt solid #000; }
+    .entries { background: none; border-radius: 0; overflow: visible; }
+    .entry, .entrybtn { break-inside: avoid; padding: 3mm 0; }
+    .clamp { display: block; overflow: visible; -webkit-line-clamp: unset; }
+    .entries li + li { border-top: .5pt solid #999; }
+    .avatar { background: none; color: #000; border: 1pt solid #444; width: 9mm; height: 9mm; font-size: 10pt; }
+    .ehead time, .edited { color: #222; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mockbar">
+  <nav class="chips" id="chips" aria-label="画面の切り替え(モック用)"></nav>
+  <details>
+    <summary>モックの操作</summary>
+    <p style="margin:6px 0">記録の内容は、すべて架空のものです。</p>
+    <label>ログイン中の人
+      <select id="selMe">
+        <option value="u1">ゆうき（作成者）</option>
+        <option value="u2">あおい</option>
+      </select>
+    </label>
+    <label>表示の状態
+      <select id="selMode">
+        <option value="normal">通常</option>
+        <option value="nogroup">グループに未所属</option>
+        <option value="noentry">記録が 0 件</option>
+        <option value="badinvite">招待リンクが使えない</option>
+      </select>
+    </label>
+  </details>
+</div>
+
+<main class="phone" id="app"></main>
+
+<div class="backdrop" id="sheet" hidden>
+  <div class="sheet" role="dialog" aria-label="期間を選ぶ">
+    <div class="sheet-head">
+      <b>期間を選ぶ</b>
+      <button class="link" type="button" id="closeSheet">閉じる</button>
+    </div>
+    <ul class="presets">
+      <li><button type="button" data-preset="week">直近1週間<span class="check">✓</span></button></li>
+      <li><button type="button" data-preset="month" aria-current="true">直近1か月<span class="check">✓</span></button></li>
+      <li><button type="button" data-preset="quarter">直近3か月<span class="check">✓</span></button></li>
+      <li><button type="button" data-preset="all">すべて<span class="check">✓</span></button></li>
+    </ul>
+    <div class="custom">
+      <b>期間を指定する</b>
+      <div class="row">
+        <label>開始日<input type="date" id="fromDate" value="2026-09-05"></label>
+        <label>終了日<input type="date" id="toDate" value="2026-10-05"></label>
+      </div>
+      <button class="btn block" type="button" id="applyCustom">この期間で表示する</button>
+    </div>
+  </div>
+</div>
+
+<div class="backdrop" id="groupSheet" hidden>
+  <div class="sheet" role="dialog" aria-label="グループを選ぶ">
+    <div class="sheet-head">
+      <b>グループを選ぶ</b>
+      <button class="link" type="button" id="closeGroups">閉じる</button>
+    </div>
+    <ul class="presets" id="groupList"></ul>
+    <div class="stack" style="margin-top:14px">
+      <button class="btn secondary block" type="button" id="newGroup">＋ 新しいグループ</button>
+    </div>
+    <p class="lead" style="margin:14px 4px 0">家族から招待リンクを受け取ったときは、そのリンクを開いてください。</p>
+  </div>
+</div>
+
+<div class="backdrop center" id="dialogWrap" hidden><div class="dialog" role="dialog" aria-modal="true" id="dialog"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  /* ---------- データ ---------- */
+  const TODAY = new Date('2026-10-05T20:00:00');
+  const members = {
+    u1: { name: 'ゆうき', cls: 'm1', role: '作成者' },
+    u2: { name: 'あおい', cls: 'm2' },
+    u3: { name: 'ひなた', cls: 'm3' },
+    u4: { name: 'けい',   cls: 'm4', former: true },
+  };
+  const EMAIL = { u1: 'yuuki@example.com', u2: 'aoi@example.com', u3: 'hinata@example.com', u4: 'kei@example.com' };
+  const groups = [{ id: 'g1', name: '母のこと', people: 4 }, { id: 'g2', name: '祖父のこと', people: 3 }];
+  const store = {
+    g1: [
+      { id: 1, by: 'u1', date: '2026-09-08', time: '12:10', body: '電話で、約束の日を一週間ずれて覚えていた。' },
+      { id: 2, by: 'u2', date: '2026-09-12', time: '19:00', body: '鍵を探していた。いつもの場所にはなく、一緒に探して玄関の棚で見つかった。' },
+      { id: 3, by: 'u3', date: '2026-09-20', time: '08:05', body: '朝の散歩の途中で、いつもの道を一度間違えた。声をかけると戻れた。', edited: '9月20日 21:10' },
+      { id: 4, by: 'u4', date: '2026-09-28', time: '14:30', body: '病院の予約の日を、二度確認された。' },
+      { id: 5, by: 'u2', date: '2026-10-03', time: '19:30', body: '夕食のあと、少し前に話したことをもう一度聞かれた。' },
+      { id: 6, by: 'u3', date: '2026-10-05', time: '08:40', body: '朝食のとき、昨日の予定を聞かれた。' },
+      { id: 7, by: 'u1', date: '2026-10-05', time: '19:30', body: '夕食のあと、少し前に話したことをもう一度聞かれた。同じ話を3回したが、本人は気にしていない様子だった。' },
+    ],
+    g2: [
+      { id: 101, by: 'u2', date: '2026-09-28', time: '10:00', body: '散歩のあと、同じ質問を二度された。' },
+      { id: 102, by: 'u3', date: '2026-10-01', time: '18:20', body: '食事の時間を勘違いしていた。' },
+    ],
+  };
+  let entries = store.g1;
+  let nextId = 200;
+  const S = { view: 'timeline', stack: [], group: 'g1', detailId: 7, me: 'u1', mode: 'normal', draft: '', invite: 'active',
+              sort: 'desc', fromTab: true, period: { name: '直近1か月', from: '2026-09-05', to: '2026-10-05' } };
+  const GN = () => (groups.find(g => g.id === S.group) || { name: '' }).name;
+  const activeIds = () => Object.keys(members).filter(k => !members[k].former);
+  const isCreator = () => members[S.me].role === '作成者';
+  const home = () => (groups.length && S.mode !== 'nogroup') ? 'timeline' : 'welcome';
+
+  /* ---------- 小さな道具 ---------- */
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const WD = ['日', '月', '火', '水', '木', '金', '土'];
+  const dayLabel = iso => { const d = new Date(iso + 'T00:00:00'); return `${d.getMonth() + 1}月${d.getDate()}日（${WD[d.getDay()]}）`; };
+  const md = iso => { const d = new Date(iso + 'T00:00:00'); return `${d.getMonth() + 1}月${d.getDate()}日`; };
+  const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const initial = id => members[id].name.slice(0, 1);
+  const chev = '<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const down = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  let toastTimer;
+  const toast = msg => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2200); };
+  function openDialog(html) { $('#dialog').innerHTML = html; $('#dialogWrap').hidden = false; }
+  function closeDialog() { $('#dialogWrap').hidden = true; }
+
+  /* ---------- 画面の共通部品 ---------- */
+  const header = (left, title, right = '<span></span>') => `<header class="bar">${left}<span class="title">${title}</span>${right}</header>`;
+  const backBtn = label => `<button class="link" data-act="back">${label}</button>`;
+  const groupBtn = () => `<button class="groupbtn" data-act="openGroups" aria-haspopup="dialog" aria-label="グループを切り替える（いまは${esc(GN())}）"><span>${esc(GN())}</span>${down}</button>`;
+  const ICON = {
+    timeline: '<path d="M5 6h14M5 12h14M5 18h9"/>',
+    settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+    members: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.5 0 4 2 4 5"/>',
+  };
+  const tabbar = active => `<nav class="tabbar" aria-label="画面">${[['timeline', '一覧'], ['members', 'メンバー'], ['settings', '設定']].map(([k, l]) =>
+    `<button data-tab="${k}" ${k === active ? 'aria-current="page"' : ''}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg><span>${l}</span></button>`).join('')}</nav>`;
+
+  const entryInner = (e, clamp) => `
+    <span class="avatar ${members[e.by].cls}" aria-hidden="true">${esc(initial(e.by))}</span>
+    <div class="ebody">
+      <div class="ehead"><b class="name">${esc(members[e.by].name)}</b><time>${e.time}</time></div>
+      <p class="${clamp ? 'clamp' : ''}">${esc(e.body)}</p>
+      ${e.edited ? '<span class="edited">編集済み</span>' : ''}
+    </div>`;
+  function days(list, order) {
+    const dates = [...new Set(list.map(e => e.date))].sort();
+    if (order === 'desc') dates.reverse();
+    return dates.map(d => ({ date: d, items: list.filter(e => e.date === d).sort((a, b) => order === 'desc' ? b.time.localeCompare(a.time) : a.time.localeCompare(b.time)) }));
+  }
+
+  /* ---------- 各画面 ---------- */
+  const views = {};
+
+  // グループが 0 のときだけ出る、はじめの画面
+  views.welcome = () => `
+    ${header('<span></span>', 'みんなのきろく', '<button class="link" data-act="openSettings">設定</button>')}
+    <div class="body">
+      <div class="card empty">
+        <p>まだグループがありません。<br>新しく作るか、家族から招待リンクを受け取っているときは、そのリンクを開いてください。</p>
+        <button class="btn block" data-go="create">グループを作る</button>
+      </div>
+    </div>`;
+
+  views.create = () => `
+    ${header(backBtn('キャンセル'), '新しいグループ')}
+    <div class="body">
+      <label class="field" for="gname">グループの名前</label>
+      <input class="textfield" id="gname" placeholder="例: 母のこと">
+    </div>
+    <div class="footbar"><button class="btn block" id="mkGroup" disabled>作る</button></div>`;
+
+  views.accept = () => S.mode === 'badinvite' ? `
+    ${header('<span></span>', '招待')}
+    <div class="body">
+      <div class="card errorcard"><div class="pad">
+        <b>このリンクは使えません</b>
+        <p class="lead" style="margin:6px 0 16px">期限が切れたか、すでに使われています。招待した人に、新しいリンクを頼んでください。</p>
+        <button class="btn secondary block" data-go="${home()}" data-reset="1">閉じる</button>
+      </div></div>
+    </div>` : `
+    ${header('<span></span>', '招待')}
+    <div class="body">
+      <div class="card"><div class="pad">
+        <h2 style="margin:0 0 8px;font-size:1.125rem">「${esc(GN())}」に招待されました</h2>
+        <p class="lead">参加すると、このグループの記録を見たり、書いたりできます。招待された人だけが、記録を見ることができます。</p>
+        <div class="stack">
+          <button class="btn block" data-act="join">参加する</button>
+          <button class="btn secondary block" data-go="${home()}" data-reset="1">やめる</button>
+        </div>
+      </div></div>
+    </div>`;
+
+  views.timeline = () => {
+    const p = S.period;
+    const all = S.mode === 'noentry' ? [] : entries;
+    const list = all.filter(e => e.date >= p.from && e.date <= p.to);
+    const range = p.name === 'すべて' ? '' : `${md(p.from)} 〜 ${md(p.to)}`;
+    const sortName = S.sort === 'desc' ? '新しい順' : '古い順';
+    const body = !all.length ? `
+      <div class="card empty">
+        <p>まだ記録がありません。<br>気になったことがあれば、最初の 1 件を書いてみましょう。</p>
+        <button class="btn block" data-go="compose">記録する</button>
+      </div>` : !list.length ? '<div class="card empty"><p>この期間の記録はありません。</p></div>' : days(list, S.sort).map(d => `
+      <section class="day"><h3>${dayLabel(d.date)}</h3><ul class="entries">
+        ${d.items.map(e => `<li class="${members[e.by].cls}"><button class="entrybtn" data-detail="${e.id}">${entryInner(e, true)}</button></li>`).join('')}
+      </ul></section>`).join('');
+    return `
+      ${header(groupBtn(), '一覧')}
+      <div class="body has-fab">
+        <div class="print-title"><h1>${esc(GN())}　記録</h1><p>期間: ${range || 'すべて'} ／ ${list.length}件 ／ ${sortName}</p><p>出力日: 2026年10月5日</p></div>
+        ${all.length ? `
+        <div class="card controls noprint">
+          <button class="navrow" data-act="openSheet" aria-haspopup="dialog"><b>期間</b>
+            <span class="rv"><span>${esc(p.name)}</span>${range ? `<small>${range}</small>` : ''}</span>${down}</button>
+          <div class="navrow static"><b>並び順</b>
+            <div class="seg" role="group" aria-label="並び順">
+              <button data-sort="desc" aria-pressed="${S.sort === 'desc'}">新しい順</button>
+              <button data-sort="asc" aria-pressed="${S.sort === 'asc'}">古い順</button>
+            </div></div>
+          <button class="navrow action" data-act="print"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M8 14h8v6H8z"/></svg><b>印刷 / PDFにする</b></button>
+        </div>
+        <div class="summary noprint">${list.length}件</div>` : ''}
+        ${body}
+      </div>
+      <div class="fabwrap"><button class="fab" data-go="compose"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>記録する</button></div>
+      ${tabbar('timeline')}`;
+  };
+
+  views.compose = () => `
+    ${header(backBtn('キャンセル'), '記録する')}
+    <div class="body">
+      <label class="field" for="entryText">気になったことを、思いついたまま書いてください。</label>
+      <textarea class="text" id="entryText" placeholder="例: 昨日の夜、さっき話したことをまた聞かれた。">${esc(S.draft)}</textarea>
+    </div>
+    <div class="footbar"><button class="btn block" id="saveEntry" ${S.draft.trim() ? '' : 'disabled'}>保存する</button></div>`;
+
+  views.detail = () => {
+    const e = entries.find(x => x.id === S.detailId) || entries[0];
+    if (!e) return `${header(backBtn('‹ 一覧'), '記録')}<div class="body"><div class="card empty"><p>この記録は見つかりません。</p></div></div>`;
+    S.detailId = e.id;
+    const mine = e.by === S.me;
+    return `
+      ${header(backBtn('‹ 一覧'), '記録', mine ? '<button class="link strong" data-go="edit">編集</button>' : '<span></span>')}
+      <div class="body">
+        <div class="card"><div class="pad">
+          <p class="detail-date">${dayLabel(e.date)} ${e.time}</p>
+          <div class="detail-who ${members[e.by].cls}"><span class="avatar lg" aria-hidden="true">${esc(initial(e.by))}</span><span><b>${esc(members[e.by].name)}</b>${members[e.by].former ? '<span class="edited">（元メンバー）</span>' : ''}</span></div>
+          <p class="detail-body">${esc(e.body)}</p>
+          ${e.edited ? `<p class="edited" style="margin:12px 0 0">編集済み（${e.edited}）</p>` : ''}
+        </div></div>
+        ${mine ? `<div class="card apart"><button class="navrow dangerrow" data-act="askDelete">この記録を削除する</button></div>` : ''}
+      </div>`;
+  };
+
+  views.edit = () => {
+    const e = entries.find(x => x.id === S.detailId) || entries[0];
+    return `
+      ${header(backBtn('キャンセル'), '記録を編集')}
+      <div class="body">
+        <label class="field" for="editText">${dayLabel(e.date)} ${e.time} の記録</label>
+        <textarea class="text" id="editText">${esc(e.body)}</textarea>
+      </div>
+      <div class="footbar"><button class="btn block" id="saveEdit">保存する</button></div>`;
+  };
+
+  views.members = () => {
+    const act = activeIds(), former = Object.keys(members).filter(k => members[k].former);
+    const row = id => `<div class="member ${members[id].cls} ${members[id].former ? 'former' : ''}"><span class="avatar" aria-hidden="true">${esc(initial(id))}</span>
+      <span class="grow"><b>${esc(members[id].name)}</b>${id === S.me ? '<span class="edited"> （あなた）</span>' : ''}</span>
+      <span class="role">${members[id].role || ''}</span></div>`;
+    return `
+      ${header(groupBtn(), 'メンバー')}
+      <div class="body">
+        <div class="card">${act.map(row).join('')}</div>
+        ${former.length ? `<div class="section-label">元のメンバー</div><div class="card">${former.map(row).join('')}</div>
+          <p class="lead" style="margin:8px 4px 0">書いた記録は残ります。</p>` : ''}
+        <div class="stack" style="margin-top:22px">
+          ${isCreator() ? '<button class="btn block" data-go="invite">招待リンクをつくる</button>' : ''}
+          <button class="btn danger block" data-act="askLeave">このグループを抜ける</button>
+        </div>
+      </div>
+      ${tabbar('members')}`;
+  };
+
+  views.invite = () => `
+    ${header(backBtn('‹ メンバー'), '招待リンク')}
+    <div class="body">
+      ${S.invite === 'active' ? `
+        <div class="card"><div class="pad">
+          <div class="linkbox" id="linkText">https://kiroku.example.com/invite/9fK3xQ2m</div>
+          <div class="stack" style="margin-top:14px">
+            <button class="btn block" data-act="share">メッセージで送る</button>
+            <button class="btn secondary block" data-act="copy" id="copyBtn">コピーする</button>
+          </div>
+          <ul class="infolist"><li>7日間有効です</li><li>1人だけが使えます</li><li>招待された人だけが、このグループの記録を見ることができます</li></ul>
+        </div></div>
+        <div style="margin-top:16px"><button class="btn danger block" data-act="revoke">このリンクを無効にする</button></div>`
+      : `
+        <div class="card"><div class="pad">
+          <b>リンクを無効にしました</b>
+          <p class="lead" style="margin:6px 0 16px">このリンクでは、もう参加できません。必要なら、新しいリンクをつくれます。</p>
+          <button class="btn block" data-act="renew">新しいリンクをつくる</button>
+        </div></div>`}
+    </div>`;
+
+  views.settings = () => {
+    const u = members[S.me];
+    return `
+      ${header(S.fromTab ? '<span></span>' : backBtn('‹ 戻る'), '設定')}
+      <div class="body">
+        <div class="card"><div class="pad">
+          <div class="detail-who ${u.cls}"><span class="avatar lg" aria-hidden="true">${esc(initial(S.me))}</span><b>${esc(u.name)}</b></div>
+          <label class="field" for="dname">表示名</label>
+          <input class="textfield" id="dname" value="${esc(u.name)}">
+          <button class="btn block" id="saveName" style="margin-top:12px" disabled>保存する</button>
+        </div></div>
+        <div class="card"><div class="kv"><small>メールアドレス</small><b>${EMAIL[S.me]}</b></div></div>
+        <div style="margin-top:22px"><button class="btn secondary block" data-act="logout">ログアウト</button></div>
+      </div>
+      ${S.fromTab ? tabbar('settings') : ''}`;
+  };
+
+  const TITLES = { welcome: 'グループなし', create: 'グループ作成', accept: '招待の確認', timeline: '一覧', compose: '記録の入力',
+                   detail: '記録の詳細', edit: '記録の編集', members: 'メンバー', invite: '招待リンク', settings: '設定' };
+
+  /* ---------- 描画と移動 ---------- */
+  function render() {
+    if (S.mode === 'nogroup' && ['timeline', 'members', 'compose', 'detail', 'edit', 'invite'].includes(S.view)) S.view = 'welcome';
+    $('#app').innerHTML = `<section class="screen" id="screen-${S.view}">${views[S.view]()}</section>`;
+    $('#chips').innerHTML = Object.entries(TITLES).map(([k, v]) => `<button type="button" data-chip="${k}" aria-pressed="${k === S.view}">${v}</button>`).join('');
+    bindScreen();
+    window.scrollTo(0, 0);
+  }
+  function go(view, { reset = false } = {}) {
+    if (reset) S.stack = []; else S.stack.push(S.view);
+    S.view = view; render();
+  }
+  function back() { S.view = S.stack.pop() || home(); render(); }
+
+  function bindScreen() {
+    const root = $('#app');
+    root.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go, { reset: !!b.dataset.reset })));
+    root.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { S.stack = []; S.fromTab = true; S.view = b.dataset.tab; render(); }));
+    root.querySelectorAll('[data-sort]').forEach(b => b.addEventListener('click', () => { S.sort = b.dataset.sort; render(); }));
+    root.querySelectorAll('[data-detail]').forEach(b => b.addEventListener('click', () => { S.detailId = +b.dataset.detail; go('detail'); }));
+    root.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => actions[b.dataset.act] && actions[b.dataset.act](b)));
+    const dn = $('#dname');
+    if (dn) {
+      dn.addEventListener('input', () => { $('#saveName').disabled = !dn.value.trim() || dn.value.trim() === members[S.me].name; });
+      $('#saveName').addEventListener('click', () => { members[S.me].name = dn.value.trim(); toast('保存しました'); render(); });
+    }
+    const g = $('#gname'); if (g) g.addEventListener('input', () => { $('#mkGroup').disabled = !g.value.trim(); });
+    const mk = $('#mkGroup');
+    if (mk) mk.addEventListener('click', () => {
+      const id = 'g' + (groups.length + 10);
+      groups.push({ id, name: g.value.trim(), people: 1 }); store[id] = [];
+      S.group = id; entries = store[id]; S.mode = 'normal'; $('#selMode').value = 'normal'; S.period = { name: '直近1か月', from: '2026-09-05', to: '2026-10-05' };
+      toast('グループを作りました'); S.fromTab = true; go('timeline', { reset: true });
+    });
+    const t = $('#entryText');
+    if (t) {
+      t.addEventListener('input', () => { S.draft = t.value; $('#saveEntry').disabled = !t.value.trim(); });
+      $('#saveEntry').addEventListener('click', () => {
+        entries.push({ id: nextId++, by: S.me, date: isoOf(TODAY), time: '20:15', body: t.value.trim() });
+        S.draft = ''; toast('保存しました'); go('timeline', { reset: true });
+      });
+    }
+    const se = $('#saveEdit');
+    if (se) se.addEventListener('click', () => {
+      const e = entries.find(x => x.id === S.detailId), v = $('#editText').value.trim();
+      if (!v) return;
+      e.body = v; e.edited = '10月5日 20:20'; toast('保存しました'); S.view = 'detail'; S.stack.pop(); render();
+    });
+  }
+
+  function switchGroup(id) { S.group = id; entries = store[id]; S.stack = []; S.view = 'timeline'; S.fromTab = true; $('#groupSheet').hidden = true; render(); }
+  function renderGroupList() {
+    $('#groupList').innerHTML = groups.map(g => `<li><button type="button" data-group="${g.id}" ${g.id === S.group ? 'aria-current="true"' : ''}><span><b>${esc(g.name)}</b><br><small style="color:var(--muted)">${g.people}人</small></span><span class="check">✓</span></button></li>`).join('');
+    $('#groupList').querySelectorAll('[data-group]').forEach(b => b.addEventListener('click', () => switchGroup(b.dataset.group)));
+  }
+
+  const actions = {
+    back,
+    print: () => window.print(),
+    openSettings: () => { S.fromTab = false; go('settings'); },
+    logout: () => { toast('ログアウトしました'); S.fromTab = true; go(home(), { reset: true }); },
+    openGroups: () => { renderGroupList(); $('#groupSheet').hidden = false; },
+    join: () => { toast('参加しました'); S.fromTab = true; go('timeline', { reset: true }); },
+    openSheet: () => { $('#sheet').hidden = false; },
+    askDelete: () => openDialog(`<h2>この記録を削除しますか？</h2><p>削除すると、元に戻せません。</p>
+      <div class="actions"><button class="btn danger-fill" data-d="del">削除する</button><button class="btn secondary" data-d="cancel">やめる</button></div>`),
+    askLeave: () => {
+      const others = activeIds().filter(k => k !== S.me);
+      openDialog(`<h2>このグループを抜けますか？</h2>
+        <p>書いた記録は、グループに残ります。消したい場合は、抜ける前に削除してください。</p>
+        ${isCreator() ? `<p style="margin-bottom:8px;color:var(--text)"><b>次の作成者を選んでください</b></p>
+          <ul class="choices">${others.map(k => `<li><label class="choice"><input type="radio" name="next" value="${k}"> ${esc(members[k].name)}</label></li>`).join('')}</ul>` : ''}
+        <div class="actions"><button class="btn danger-fill" data-d="leave" ${isCreator() ? 'disabled' : ''}>抜ける</button><button class="btn secondary" data-d="cancel">やめる</button></div>`);
+    },
+    copy: b => { (navigator.clipboard ? navigator.clipboard.writeText($('#linkText').textContent) : Promise.resolve()).catch(() => {}); b.textContent = 'コピーしました'; setTimeout(() => { b.textContent = 'コピーする'; }, 1800); },
+    share: () => toast('共有メニューが開きます（モックでは動きません）'),
+    revoke: () => { S.invite = 'revoked'; render(); },
+    renew: () => { S.invite = 'active'; render(); },
+  };
+
+  $('#dialog').addEventListener('click', ev => {
+    const d = ev.target.closest('[data-d]'); if (!d) return;
+    const k = d.dataset.d;
+    if (k === 'cancel') return closeDialog();
+    if (k === 'del') { const i = entries.findIndex(e => e.id === S.detailId); if (i >= 0) entries.splice(i, 1); closeDialog(); toast('削除しました'); S.view = 'timeline'; S.stack.pop(); render(); }
+    if (k === 'leave') {
+      closeDialog(); toast('グループを抜けました');
+      const i = groups.findIndex(g => g.id === S.group); if (i >= 0) groups.splice(i, 1);
+      if (groups.length) { S.group = groups[0].id; entries = store[S.group]; } else { S.mode = 'nogroup'; $('#selMode').value = 'nogroup'; }
+      S.fromTab = true; go(home(), { reset: true });
+    }
+  });
+  $('#dialog').addEventListener('change', ev => { if (ev.target.name === 'next') { const b = $('[data-d="leave"]'); if (b) b.disabled = false; } });
+  $('#dialogWrap').addEventListener('click', ev => { if (ev.target.id === 'dialogWrap') closeDialog(); });
+  $('#closeGroups').addEventListener('click', () => { $('#groupSheet').hidden = true; });
+  $('#groupSheet').addEventListener('click', e => { if (e.target.id === 'groupSheet') $('#groupSheet').hidden = true; });
+  $('#newGroup').addEventListener('click', () => { $('#groupSheet').hidden = true; go('create'); });
+
+  /* ---------- モックの操作 ---------- */
+  $('#chips').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-chip]'); if (!b) return;
+    S.stack = []; S.fromTab = ['timeline', 'members', 'settings'].includes(b.dataset.chip); S.view = b.dataset.chip; render();
+  });
+  $('#selMe').addEventListener('change', e => { S.me = e.target.value; render(); });
+  $('#selMode').addEventListener('change', e => { S.mode = e.target.value; if (S.mode === 'nogroup') S.view = 'welcome'; else if (S.view === 'welcome') S.view = 'timeline'; render(); });
+
+  /* ---------- 期間の選択 ---------- */
+  const sheet = $('#sheet');
+  const back2 = (m, d) => { const x = new Date(TODAY); x.setHours(0, 0, 0, 0); if (m) x.setMonth(x.getMonth() - m); if (d) x.setDate(x.getDate() - d); return x; };
+  const PRESETS = { week: ['直近1週間', () => back2(0, 7)], month: ['直近1か月', () => back2(1, 0)], quarter: ['直近3か月', () => back2(3, 0)], all: ['すべて', () => new Date('2000-01-01T00:00:00')] };
+  const setPeriod = (name, from, to) => { S.period = { name, from: isoOf(from), to: isoOf(to) }; sheet.hidden = true; render(); };
+  sheet.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    sheet.querySelectorAll('[data-preset]').forEach(x => x.removeAttribute('aria-current'));
+    b.setAttribute('aria-current', 'true');
+    const [name, from] = PRESETS[b.dataset.preset];
+    const end = new Date(TODAY); end.setHours(0, 0, 0, 0);
+    setPeriod(name, from(), end);
+  }));
+  $('#applyCustom').addEventListener('click', () => {
+    const f = $('#fromDate').value, t = $('#toDate').value;
+    if (!f || !t || f > t) return;
+    sheet.querySelectorAll('[data-preset]').forEach(x => x.removeAttribute('aria-current'));
+    setPeriod('指定した期間', new Date(f + 'T00:00:00'), new Date(t + 'T00:00:00'));
+  });
+  $('#closeSheet').addEventListener('click', () => { sheet.hidden = true; });
+  sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { sheet.hidden = true; $('#groupSheet').hidden = true; closeDialog(); } });
+
+  render();
+})();
+</script>
+</body>
+</html>
