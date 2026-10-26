@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="みんなのきろくのファビコン：き と書かれたノート">
+  <defs>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4C9485"/>
+      <stop offset="0.54" stop-color="#417D71"/>
+      <stop offset="1" stop-color="#397568"/>
+    </linearGradient>
+    <linearGradient id="pages" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E4F3E9"/>
+      <stop offset="1" stop-color="#B7DCCC"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFFCF6"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#96C7B7"/>
+      <stop offset="1" stop-color="#70A99A"/>
+    </linearGradient>
+  </defs>
+  <!-- App's accent color is #417D71. Keep transparent exterior corners. -->
+  <rect width="512" height="512" rx="108" fill="url(#green)"/>
+  <!-- Pale mint pages beneath the cover -->
+  <rect x="135" y="103" width="316" height="350" rx="51" fill="#326D61" opacity="0.18"/>
+  <rect x="128" y="100" width="319" height="345" rx="50" fill="url(#pages)"/>
+  <!-- Notebook cover: shape follows the outward curl rather than drawing a triangle on top of a full rectangle -->
+  <path d="M150 77 H382 C409 77 431 99 431 126 V347
+           C419 361 407 361 394 362 C376 362 365 376 365 391
+           V402 C365 414 358 422 345 422 H150 C123 422 101 400 101 373 V126
+           C101 99 123 77 150 77 Z" fill="url(#paper)"/>
+  <!-- Exposed mint pages underneath the lifted lower-right sheet -->
+  <path d="M354 422 C366 413 365 404 365 391 C365 371 379 360 395 361
+           C411 361 422 358 431 347 C427 370 404 399 373 421 Z" fill="url(#fold)"/>
+  <!-- Darker green page curl for clear contrast at 16px; no crease strokes or extra fold lines. -->
+  <!-- 3 oversize mint binder rings make it clearly identifiable as a notebook -->
+  <g fill="#28695D" opacity="0.95">
+    <rect x="69" y="153" width="88" height="36" rx="18"/>
+    <rect x="69" y="242" width="88" height="36" rx="18"/>
+    <rect x="69" y="331" width="88" height="36" rx="18"/>
+  </g>
+  <g fill="#D5EEE3" stroke="#F3FBF5" stroke-width="3">
+    <rect x="64" y="150" width="84" height="33" rx="16.5"/>
+    <rect x="64" y="239" width="84" height="33" rx="16.5"/>
+    <rect x="64" y="328" width="84" height="33" rx="16.5"/>
+  </g>
+  <!-- Render "き" as an embedded vector outline to eliminate font dependencies -->
+  <path fill="#347A6D" d="M338 276 214 300C191 252 169 203 171 139C173 -4 297 -63 497 -63C579 -63 670 -56 740 -44L747 83C676 69 591 61 496 61C364 61 294 91 294 165C294 208 314 243 338 276ZM146 508 153 390C305 381 466 381 588 389C604 355 623 320 644 285C614 288 560 293 518 297L508 202C581 194 689 181 745 170L806 262C788 279 774 294 761 313C743 339 726 370 709 402C769 410 823 421 869 433L849 551C800 538 740 521 658 511L641 556L626 603C692 612 755 625 810 640L794 755C730 735 666 721 597 712C590 746 584 781 579 817L444 802C457 767 467 735 477 703C385 700 283 704 164 718L171 603C297 591 414 589 508 594L528 535L541 500C430 493 295 494 146 508Z" transform="translate(165.86307,370.62241) scale(0.240664,-0.240664)"/>
+  <!-- Small warm details: "a little thing worth noticing" -->
+  <g stroke="#E99170" stroke-linecap="round" fill="none">
+    <path d="M359 135 L352 170" stroke-width="20"/>
+    <path d="M392 173 L373 193" stroke-width="19"/>
+    <path d="M411 232 L385 237" stroke-width="17"/>
+  </g>
+</svg>

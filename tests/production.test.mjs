@@ -305,3 +305,73 @@ test('JSONのPOSTはフォームactionを実行せず(415)、正しい本文で�
   }
   assert.ok(!(await (await user.send('/')).text()).includes(payload.body), 'JSONのPOSTで記録が作られています');
 });
+
+// --- 成功通知(フラッシュCookie): URLではなく短命・HttpOnly・同一サイトのCookieで、一度だけ表示する ---
+const flashCookie = (response) => response.headers.getSetCookie().find((value) => value.startsWith('flash='));
+const flashAttributes = (value) => value.split(';').map((part) => part.trim().toLowerCase());
+
+test('保存・更新・削除の成功は、HttpOnlyの短命Cookieで303の先に一度だけ通知される', { timeout: 30000 }, async (t) => {
+  const app = await startWithAccess(t);
+  const user = await app.as('subject-flash', 'flash@example.com');
+  const stranger = await app.as('subject-stranger', 'stranger@example.com');
+  const withFlash = (kind) => ({ Cookie: `flash=${kind}` });
+  // Svelte が SSR で入れるコメントを除き、role="status" の領域の中身だけを返す
+  const statusOf = (html) => (html.match(/<div[^>]*role="status"[^>]*>([^]*?)<\/div>/)?.[1] ?? '').replace(/<!--[^]*?-->/g, '');
+
+  // 保存: 303のレスポンスがCookieを設定する。URLには何も付けない
+  const categoryId = (await (await user.send('/entries/new')).text()).match(/<input[^>]*name="categoryId"[^>]*value="([^"]+)"/)?.[1];
+  const created = await user.form('/entries/new?/save', { body: '通知の確認', eventDate: today(), categoryId });
+  assert.equal(created.status, 303);
+  assert.equal(created.headers.get('location'), '/');
+  const cookie = flashCookie(created);
+  assert.ok(cookie, 'flash Cookie が設定されていません');
+  const attributes = flashAttributes(cookie);
+  assert.equal(attributes[0], 'flash=saved');
+  for (const required of ['httponly', 'samesite=strict', 'path=/', 'max-age=60']) assert.ok(attributes.includes(required), `${required}: ${cookie}`);
+  assert.ok(attributes.includes('secure'), `Secure がありません: ${cookie}`);
+
+  // 通知は role="status" の領域に出て、読んだ応答でCookieを消す。次の読み込みには残らない
+  const shown = await user.send('/', { headers: withFlash('saved') });
+  const shownHtml = await shown.text();
+  assert.match(statusOf(shownHtml), /記録を保存しました/);
+  const cleared = flashCookie(shown);
+  assert.ok(cleared && /max-age=0|expires=thu, 01 jan 1970/i.test(cleared), `Cookieが消されていません: ${cleared}`);
+  assert.equal(statusOf(await (await user.send('/')).text()).includes('記録を'), false);
+
+  // 更新: 303の先は詳細画面。編集フォームの現在の版を付けて送る
+  const entryId = shownHtml.match(/href="\/entries\/([0-9a-f-]{36})"/)?.[1];
+  const version = (await (await user.send(`/entries/${entryId}/edit`)).text()).match(/<input[^>]*name="version"[^>]*value="(\d+)"/)?.[1];
+  const updated = await user.form(`/entries/${entryId}/edit?/save`, { body: '通知の確認(更新)', eventDate: today(), categoryId, version });
+  assert.equal(updated.status, 303);
+  assert.equal(updated.headers.get('location'), `/entries/${entryId}`);
+  assert.equal(flashAttributes(flashCookie(updated))[0], 'flash=updated');
+  assert.match(statusOf(await (await user.send(`/entries/${entryId}`, { headers: withFlash('updated') })).text()), /記録を更新しました/);
+
+  // 失敗(他人の削除・CSRF拒否)では通知を出さない
+  const forbidden = await stranger.form(`/entries/${entryId}?/delete`, {});
+  assert.equal(forbidden.status, 403);
+  assert.equal(flashCookie(forbidden), undefined);
+  const forged = await user.form(`/entries/${entryId}?/delete`, {}, otherOrigin);
+  assert.equal(forged.status, 403);
+  assert.equal(flashCookie(forged), undefined);
+
+  // 削除
+  const deleted = await user.form(`/entries/${entryId}?/delete`, {});
+  assert.equal(deleted.status, 303);
+  assert.equal(deleted.headers.get('location'), '/');
+  assert.equal(flashAttributes(flashCookie(deleted))[0], 'flash=deleted');
+  assert.match(statusOf(await (await user.send('/', { headers: withFlash('deleted') })).text()), /記録を削除しました/);
+
+  // 「閉じる」は同じ画面(検索条件つき)への普通のリンク。通知の読み上げ領域には含めない
+  const withQuery = await (await user.send('/?a=1&b=2', { headers: withFlash('saved') })).text();
+  assert.match(withQuery, /<a[^>]*class="flash-close[^"]*"[^>]*href="\/\?a=1&amp;b=2"/);
+  assert.ok(!statusOf(withQuery).includes('閉じる'));
+  assert.ok(!(await (await user.send('/?a=1&b=2')).text()).includes('flash-close'), '通知がないのに閉じるリンクが出ています');
+
+  // 改ざんされた値は文言にならず、HTMLにも出ない。Cookieだけ消す
+  const tampered = await user.send('/', { headers: { Cookie: 'flash=<script>alert(1)</script>' } });
+  const tamperedHtml = await tampered.text();
+  assert.equal(statusOf(tamperedHtml).trim(), '');
+  assert.ok(!tamperedHtml.includes('alert(1)'));
+  assert.ok(flashCookie(tampered));
+});
