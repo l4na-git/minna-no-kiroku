@@ -1,0 +1,29 @@
+# エディタの一時ファイル
+*.swp
+*.swo
+.DS_Store
+
+# 環境変数・秘密情報
+.env
+.env.*
+!.env.example
+
+# 参考画面(他社アプリのスクリーンショットを含むためコミットしない)
+.lazyweb/
+
+# Node / SvelteKit
+node_modules/
+.svelte-kit/
+build/
+coverage/
+playwright-report/
+test-results/
+
+# ローカルデータ
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*

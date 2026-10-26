@@ -1,0 +1,39 @@
+services:
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      BODY_SIZE_LIMIT: 256K
+      AUTH_MODE: cloudflare
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
+      ORIGIN: ${APP_ORIGIN:-}
+      DATABASE_PATH: /app/data/app.db
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      - app-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status === 401 ? 0 : 1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.1
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  app-data:
