@@ -1,7 +1,10 @@
-import { beforeAll, describe, expect, it } from 'vitest';
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTVerifyGetKey } from 'jose';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { createLocalJWKSet, createRemoteJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTVerifyGetKey } from 'jose';
 import { accessConfig, validAppOrigin, verifyAccessToken } from './cloudflare-access';
 import { findOrCreateUser, openDatabase } from './db';
+
+// 実際のJWKS取得だけを差し替える。他の jose の機能は本物を使う。
+vi.mock('jose', async (importOriginal) => ({ ...(await importOriginal<typeof import('jose')>()), createRemoteJWKSet: vi.fn() }));
 
 const issuer = 'https://example.cloudflareaccess.com';
 const audience = 'app-audience';
@@ -67,5 +70,65 @@ describe('Cloudflare Accessの認証', () => {
       .setProtectedHeader({ alg: 'RS256', kid: 'k' }).setIssuer(issuer).setAudience(audience).setSubject('subject');
     expect(await verifyAccessToken(await base().sign(pair.privateKey), config, testKeys)).toBeNull();
     expect(await verifyAccessToken(await base().setNotBefore('5m').setExpirationTime('10m').sign(pair.privateKey), config, testKeys)).toBeNull();
+  });
+});
+
+describe('Cloudflare Accessのaud(配列)', () => {
+  const config = { issuer, audience };
+  const signWith = async (aud: string | string[]) => {
+    const pair = await generateKeyPair('RS256');
+    const jwks = createLocalJWKSet({ keys: [{ ...(await exportJWK(pair.publicKey)), kid: 'aud-key', alg: 'RS256' }] });
+    const token = await new SignJWT({ email: 'person@example.com', type: 'app' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'aud-key' }).setIssuer(issuer).setAudience(aud)
+      .setSubject('aud-subject').setIssuedAt().setExpirationTime('5m').sign(pair.privateKey);
+    return { token, jwks };
+  };
+
+  it('audが配列で、設定したaudienceを含んでいれば受け付ける', async () => {
+    const { token, jwks } = await signWith(['other-audience', audience]);
+    expect(await verifyAccessToken(token, config, jwks)).toEqual({ subject: 'aud-subject', email: 'person@example.com' });
+  });
+
+  it('audが配列でも、設定したaudienceを含まなければ拒否する', async () => {
+    const { token, jwks } = await signWith(['other-audience', 'another-audience']);
+    expect(await verifyAccessToken(token, config, jwks)).toBeNull();
+    const { token: prefixed, jwks: prefixedKeys } = await signWith([`${audience}-extra`, `x${audience}`]);
+    expect(await verifyAccessToken(prefixed, config, prefixedKeys)).toBeNull();
+  });
+
+  it('audが空の配列なら拒否する', async () => {
+    const { token, jwks } = await signWith([]);
+    expect(await verifyAccessToken(token, config, jwks)).toBeNull();
+  });
+});
+
+describe('Cloudflare AccessのJWKS取得先', () => {
+  const issuerA = 'https://team-a.cloudflareaccess.com';
+  const issuerB = 'https://team-b.cloudflareaccess.com';
+
+  it('同じissuerなら公開鍵の取得先を使い回し、issuerが変わると新しい取得先に切り替える', async () => {
+    const pairs = { [issuerA]: await generateKeyPair('RS256'), [issuerB]: await generateKeyPair('RS256') };
+    const jwksByHost = new Map<string, JWTVerifyGetKey>();
+    for (const [iss, pair] of Object.entries(pairs)) {
+      jwksByHost.set(new URL(iss).host, createLocalJWKSet({ keys: [{ ...(await exportJWK(pair.publicKey)), kid: 'k', alg: 'RS256' }] }));
+    }
+    vi.mocked(createRemoteJWKSet).mockImplementation(((url: URL) => jwksByHost.get(url.host)!) as unknown as typeof createRemoteJWKSet);
+    const tokenFor = (iss: string) => new SignJWT({ email: 'person@example.com', type: 'app' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k' }).setIssuer(iss).setAudience(audience)
+      .setSubject('s').setIssuedAt().setExpirationTime('5m').sign(pairs[iss as keyof typeof pairs].privateKey);
+    const verify = async (iss: string, tokenIssuer = iss) => verifyAccessToken(await tokenFor(tokenIssuer), { issuer: iss, audience });
+    const fetched = () => vi.mocked(createRemoteJWKSet).mock.calls.map(([url]) => String(url));
+
+    expect(await verify(issuerA)).not.toBeNull();
+    expect(await verify(issuerA)).not.toBeNull();
+    expect(fetched()).toEqual([`${issuerA}/cdn-cgi/access/certs`]);
+
+    // issuerを切り替えたら、前のissuerの公開鍵は使わず、新しい取得先の鍵で検証する
+    expect(await verify(issuerB)).not.toBeNull();
+    expect(fetched()).toEqual([`${issuerA}/cdn-cgi/access/certs`, `${issuerB}/cdn-cgi/access/certs`]);
+
+    // 別のissuerが署名したトークンは、設定したissuerの鍵では検証できない(鍵の混用がない)
+    const mixed = await verifyAccessToken(await tokenFor(issuerA), { issuer: issuerB, audience });
+    expect(mixed).toBeNull();
   });
 });

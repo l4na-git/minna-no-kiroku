@@ -44,7 +44,11 @@ test('一覧の期間・順序と印刷では本文全体を表示する', async
   await page.getByLabel('気になったことを、思いついたまま書いてください。（必須）').fill('最近の記録');
   await page.getByRole('button', { name: '保存する' }).click();
   await page.goto('/entries/new');
-  await page.getByLabel('いつあったことか（必須）').fill('2020-01-10');
+  const today = await page.getByLabel('いつあったことか（必須）').inputValue();
+  const previousMonth = new Date(`${today}T00:00:00Z`);
+  previousMonth.setUTCMonth(previousMonth.getUTCMonth() - 1);
+  const previousMonthDate = `${previousMonth.getUTCFullYear()}-${String(previousMonth.getUTCMonth() + 1).padStart(2, '0')}-10`;
+  await page.getByLabel('いつあったことか（必須）').fill(previousMonthDate);
   await page.getByLabel('思い込み').check();
   await page.getByLabel('気になったことを、思いついたまま書いてください。（必須）').fill('以前の記録\n2行目\n3行目\n4行目');
   await page.getByRole('button', { name: '保存する' }).click();
@@ -58,8 +62,9 @@ test('一覧の期間・順序と印刷では本文全体を表示する', async
   await page.emulateMedia({ media: 'print' });
   await expect(page.locator('.print-only')).toContainText('すべて');
   await expect(page.locator('.print-only')).toContainText('古い順');
-  await expect(page.locator('.entry-body').first()).toHaveCSS('overflow', 'visible');
-  await expect(page.locator('.entry-body').first()).toContainText('4行目');
+  const olderEntry = page.locator('.entry-body').filter({ hasText: '以前の記録' });
+  await expect(olderEntry).toHaveCSS('overflow', 'visible');
+  await expect(olderEntry).toContainText('4行目');
   await page.emulateMedia({ media: 'screen' });
   await page.goto('/summary');
   const columns = await page.locator('.bar-column').allTextContents();
@@ -87,7 +92,7 @@ test('別端末で更新された記録に古い編集を上書きしない', as
     await second.getByLabel('気になったことを、思いついたまま書いてください。（必須）').fill('端末2の更新');
     await second.getByRole('button', { name: '保存する' }).click();
     await expect(second.getByText('端末2の更新')).toBeVisible();
-    await page.getByRole('button', { name: '保存する' }).click();
+    await page.getByRole('button', { name: '保存する' }).press('Enter');
     await expect(page.getByRole('alert')).toContainText('別の画面で記録が更新されました');
     await expect(page.getByLabel('気になったことを、思いついたまま書いてください。（必須）')).toHaveValue('端末1の書きかけ');
     await page.reload();
@@ -99,17 +104,32 @@ test('別端末で更新された記録に古い編集を上書きしない', as
 
 test.describe('JavaScriptがない場合', () => {
   test.use({ javascriptEnabled: false });
-  test('記録の作成と表示名の変更ができる', async ({ page }) => {
+  test('記録の作成、カテゴリ追加、編集、削除と表示名の変更ができる', async ({ page }) => {
     await page.goto('/entries/new');
     await page.getByLabel('物忘れ').check();
     await page.getByLabel('気になったことを、思いついたまま書いてください。（必須）').fill('   ');
-    await page.getByRole('button', { name: '保存する' }).click();
+    await page.getByRole('button', { name: '保存する' }).press('Enter');
     await expect(page.getByRole('alert')).toContainText('本文が空です');
     await expect(page.getByLabel('気になったことを、思いついたまま書いてください。（必須）')).toHaveValue('   ');
     await expect(page.getByLabel('物忘れ')).toBeChecked();
     await page.getByLabel('気になったことを、思いついたまま書いてください。（必須）').fill('JavaScriptなしの記録');
-    await page.getByRole('button', { name: '保存する' }).click();
+    await page.getByRole('button', { name: '保存する' }).press('Enter');
     await expect(page.getByText('JavaScriptなしの記録')).toBeVisible();
+    await page.getByText('JavaScriptなしの記録').click();
+    await page.getByRole('link', { name: '編集' }).click();
+    await page.getByLabel('気になったことを、思いついたまま書いてください。（必須）').fill('JavaScriptなしで編集');
+    await expect(page.getByLabel('気になったことを、思いついたまま書いてください。（必須）')).toHaveValue('JavaScriptなしで編集');
+    await page.getByRole('button', { name: '保存する' }).press('Enter');
+    await expect(page.getByText('JavaScriptなしで編集')).toBeVisible();
+    await page.getByRole('link', { name: '編集' }).click();
+    await page.getByText('＋ 新しいカテゴリ').press('Enter');
+    await page.getByLabel('カテゴリ名').fill('JSなしカテゴリ');
+    await page.getByRole('button', { name: 'カテゴリを追加' }).press('Enter');
+    await expect(page.getByLabel('JSなしカテゴリ')).toBeVisible();
+    await page.getByRole('link', { name: 'キャンセル' }).click();
+    await page.getByText('この記録を削除する').click();
+    await page.getByRole('button', { name: '削除する' }).click();
+    await expect(page.getByText('JavaScriptなしで編集')).toHaveCount(0);
     await page.goto('/settings');
     await page.getByLabel('表示名').fill('家族B');
     await page.getByRole('button', { name: '保存する' }).click();

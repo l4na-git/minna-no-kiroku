@@ -1,13 +1,16 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to the public HTTPS origin}
     environment:
       NODE_ENV: production
       BODY_SIZE_LIMIT: 256K
       AUTH_MODE: cloudflare
       CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
       CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
-      ORIGIN: ${APP_ORIGIN:-}
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to the public HTTPS origin}
       DATABASE_PATH: /app/data/app.db
       TZ: ${TZ:-Asia/Tokyo}
     volumes:
